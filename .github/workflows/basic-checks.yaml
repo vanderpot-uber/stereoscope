@@ -3,20 +3,19 @@ on:
   workflow_dispatch:
   push:
   pull_request:
+
+env:
+  GO_VERSION: "1.16.x"
+
 jobs:
 
   Static-Analysis:
-    strategy:
-      matrix:
-        # note: bumping the go version should be done for all workflows. Make certain to check conditionals as well.
-        go-version: [1.x]
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
     steps:
 
       - uses: actions/setup-go@v2
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
 
@@ -27,10 +26,10 @@ jobs:
           path: |
             ~/go/pkg/mod
             ${{ github.workspace }}/.tmp
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
       - name: Bootstrap dependencies
         if: steps.bootstrap-cache.outputs.cache-hit != 'true'
@@ -40,18 +39,12 @@ jobs:
         run: make static-analysis
 
   Tests:
-    strategy:
-      matrix:
-        # test the lower bounds of support, and the latest available
-        # note: bumping the go version should be done for all workflows. Make certain to check conditionals as well.
-        go-version: [1.14.x, 1.x]
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
     steps:
 
       - uses: actions/setup-go@v2
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ env.GO_VERSION }}
 
       - uses: actions/checkout@v2
 
@@ -62,10 +55,10 @@ jobs:
           path: |
             ~/go/pkg/mod
             ${{ github.workspace }}/.tmp
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
       - name: Bootstrap dependencies
         if: steps.bootstrap-cache.outputs.cache-hit != 'true'
@@ -88,7 +81,6 @@ jobs:
 
       - name: Restore base benchmark result
         uses: actions/cache@v2
-        if: matrix.go-version == '1.x'
         with:
           path: test/results/benchmark-main.txt
           # use base sha for PR or new commit hash for main push in benchmark result key
@@ -96,7 +88,6 @@ jobs:
 
       - name: Run benchmark tests
         id: benchmark
-        if: matrix.go-version == '1.x'
         run: |
           REF_NAME=${GITHUB_REF##*/} make benchmark
           OUTPUT=$(make show-benchstat)
@@ -106,14 +97,12 @@ jobs:
           echo "::set-output name=result::$OUTPUT"
 
       - uses: actions/upload-artifact@v2
-        if: matrix.go-version == '1.x'
         with:
           name: test-results
           path: test/results/**/*
 
       - name: Update PR benchmark results comment
         uses: marocchino/sticky-pull-request-comment@v2
-        if: matrix.go-version == '1.x'
         with:
           header: benchmark
           message: |
