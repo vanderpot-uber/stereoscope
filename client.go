@@ -13,50 +13,53 @@ import (
 	"github.com/wagoodman/go-partybus"
 )
 
-var tempDirGenerator = file.NewTempDirGenerator()
+type CleanupFn func() error
 
-// GetImage returns an image from the explicitly provided source.
-func GetImageFromSource(imgStr string, source image.Source, registryOptions *image.RegistryOptions) (*image.Image, error) {
+var rootTempDirGenerator = file.NewTempDirGenerator("stereoscope")
+
+// GetImageFromSource returns an image from the explicitly provided source.
+func GetImageFromSource(input string, source image.Source, registryOptions *image.RegistryOptions) (*image.Image, CleanupFn, error) {
 	var provider image.Provider
-	log.Debugf("image: source=%+v location=%+v", source, imgStr)
+	log.Debugf("image: source=%+v location=%+v", source, input)
+
+	tempDirGenerator := rootTempDirGenerator.NewGenerator()
 
 	switch source {
 	case image.DockerTarballSource:
-		// note: the imgStr is the path on disk to the tar file
-		provider = docker.NewProviderFromTarball(imgStr, &tempDirGenerator, nil, nil)
+		provider = docker.NewProviderFromTarball(input, tempDirGenerator, nil, nil)
 	case image.DockerDaemonSource:
-		provider = docker.NewProviderFromDaemon(imgStr, &tempDirGenerator)
+		provider = docker.NewProviderFromDaemon(input, tempDirGenerator)
 	case image.OciDirectorySource:
-		provider = oci.NewProviderFromPath(imgStr, &tempDirGenerator)
+		provider = oci.NewProviderFromPath(input, tempDirGenerator)
 	case image.OciTarballSource:
-		provider = oci.NewProviderFromTarball(imgStr, &tempDirGenerator)
+		provider = oci.NewProviderFromTarball(input, tempDirGenerator)
 	case image.OciRegistrySource:
-		provider = oci.NewProviderFromRegistry(imgStr, &tempDirGenerator, registryOptions)
+		provider = oci.NewProviderFromRegistry(input, tempDirGenerator, registryOptions)
 	default:
-		return nil, fmt.Errorf("unable determine image source")
+		return nil, tempDirGenerator.Cleanup, fmt.Errorf("unable determine image source")
 	}
 
 	img, err := provider.Provide()
 	if err != nil {
-		return nil, err
+		return nil, tempDirGenerator.Cleanup, err
 	}
 
 	err = img.Read()
 	if err != nil {
-		return nil, fmt.Errorf("could not read image: %+v", err)
+		return nil, tempDirGenerator.Cleanup, fmt.Errorf("could not read image: %+v", err)
 	}
 
-	return img, nil
+	return img, tempDirGenerator.Cleanup, nil
 }
 
 // GetImage parses the user provided image string and provides an image object; note: the source where the image should
 // be referenced from is automatically inferred.
-func GetImage(userStr string, registryOptions *image.RegistryOptions) (*image.Image, error) {
-	source, imgStr, err := image.DetectSource(userStr)
+func GetImage(userStr string, registryOptions *image.RegistryOptions) (*image.Image, CleanupFn, error) {
+	source, input, err := image.DetectSource(userStr)
 	if err != nil {
-		return nil, err
+		return nil, func() error { return nil }, err
 	}
-	return GetImageFromSource(imgStr, source, registryOptions)
+	return GetImageFromSource(input, source, registryOptions)
 }
 
 func SetLogger(logger logger.Logger) {
@@ -68,7 +71,7 @@ func SetBus(b *partybus.Bus) {
 }
 
 func Cleanup() {
-	if err := tempDirGenerator.Cleanup(); err != nil {
+	if err := rootTempDirGenerator.Cleanup(); err != nil {
 		log.Errorf("failed to cleanup: %w", err)
 	}
 }

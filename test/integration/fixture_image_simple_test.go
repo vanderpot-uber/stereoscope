@@ -2,13 +2,14 @@ package integration
 
 import (
 	"fmt"
-	"github.com/anchore/stereoscope"
-	"github.com/anchore/stereoscope/pkg/filetree"
-	"github.com/scylladb/go-set"
 	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/anchore/stereoscope"
+	"github.com/anchore/stereoscope/pkg/filetree"
+	"github.com/scylladb/go-set"
 
 	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
@@ -92,13 +93,19 @@ func BenchmarkSimpleImage_GetImage(b *testing.B) {
 			continue
 		}
 		request := imagetest.PrepareFixtureImage(b, c.source, "image-simple")
-		b.Cleanup(stereoscope.Cleanup)
+
 		b.Run(c.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				bi, err = stereoscope.GetImage(request, nil)
+				var cleanupFn stereoscope.CleanupFn
+				bi, cleanupFn, err = stereoscope.GetImage(request, nil)
 				if err != nil {
 					b.Fatal("could not get fixture image:", err)
 				}
+				b.Cleanup(func() {
+					if err := cleanupFn(); err != nil {
+						b.Errorf("unable to cleanup image: %+v", err)
+					}
+				})
 			}
 		})
 	}

@@ -2,27 +2,28 @@ package main
 
 import (
 	"fmt"
-	"github.com/anchore/stereoscope/pkg/filetree/filenode"
 	"io/ioutil"
 	"os"
+
+	"github.com/anchore/stereoscope/pkg/filetree/filenode"
 
 	"github.com/anchore/stereoscope"
 	"github.com/anchore/stereoscope/pkg/file"
 )
 
 func main() {
-	// note: we are writing out temp files which should be cleaned up after you're done with the image object
-	defer stereoscope.Cleanup()
-
 	/////////////////////////////////////////////////////////////////
 	// pass a path to an Docker save tar, docker image, or OCI directory/archive as an argument:
 	//    ./path/to.tar
 	//
 	// This will catalog the file metadata and resolve all squash trees
-	image, err := stereoscope.GetImage(os.Args[1], nil)
+	image, cleanupFn, err := stereoscope.GetImage(os.Args[1], nil)
 	if err != nil {
 		panic(err)
 	}
+
+	// note: we are writing out temp files which should be cleaned up after you're done with the image object
+	defer cleanupFn()
 
 	////////////////////////////////////////////////////////////////
 	// Show the filetree for each layer

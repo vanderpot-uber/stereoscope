@@ -54,11 +54,15 @@ func PrepareFixtureImage(t testing.TB, source, name string) string {
 func GetFixtureImage(t testing.TB, source, name string) *image.Image {
 	request := PrepareFixtureImage(t, source, name)
 
-	i, err := stereoscope.GetImage(request, nil)
+	i, cleanupFn, err := stereoscope.GetImage(request, nil)
 	if err != nil {
 		t.Fatal("could not get tar image:", err)
 	}
-	t.Cleanup(stereoscope.Cleanup)
+	t.Cleanup(func() {
+		if err := cleanupFn(); err != nil {
+			t.Errorf("could not cleanup image=%q source=%q: %w", name, source, err)
+		}
+	})
 
 	return i
 }
@@ -105,10 +109,16 @@ func skopeoCopyDockerArchiveToPath(t testing.TB, dockerArchivePath, destination 
 func getFixtureImageFromTar(t testing.TB, tarPath string) *image.Image {
 	request := fmt.Sprintf("docker-archive:%s", tarPath)
 
-	i, err := stereoscope.GetImage(request, nil)
+	i, cleanupFn, err := stereoscope.GetImage(request, nil)
 	if err != nil {
 		t.Fatal("could not get tar image:", err)
 	}
+
+	t.Cleanup(func() {
+		if err := cleanupFn(); err != nil {
+			t.Errorf("could not cleanup tarPath=%q: %w", tarPath, err)
+		}
+	})
 
 	return i
 }
