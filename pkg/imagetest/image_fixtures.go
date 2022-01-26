@@ -1,6 +1,7 @@
 package imagetest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,7 +55,7 @@ func PrepareFixtureImage(t testing.TB, source, name string) string {
 func GetFixtureImage(t testing.TB, source, name string) *image.Image {
 	request := PrepareFixtureImage(t, source, name)
 
-	i, err := stereoscope.GetImage(request, nil)
+	i, err := stereoscope.GetImage(context.TODO(), request, nil)
 	if err != nil {
 		t.Fatal("could not get tar image:", err)
 	}
@@ -105,7 +106,7 @@ func skopeoCopyDockerArchiveToPath(t testing.TB, dockerArchivePath, destination 
 func getFixtureImageFromTar(t testing.TB, tarPath string) *image.Image {
 	request := fmt.Sprintf("docker-archive:%s", tarPath)
 
-	i, err := stereoscope.GetImage(request, nil)
+	i, err := stereoscope.GetImage(context.TODO(), request, nil)
 	if err != nil {
 		t.Fatal("could not get tar image:", err)
 	}

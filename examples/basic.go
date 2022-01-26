@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/anchore/stereoscope/pkg/filetree/filenode"
 	"io/ioutil"
@@ -12,14 +13,15 @@ import (
 
 func main() {
 	// note: we are writing out temp files which should be cleaned up after you're done with the image object
-	defer stereoscope.Cleanup()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	/////////////////////////////////////////////////////////////////
 	// pass a path to an Docker save tar, docker image, or OCI directory/archive as an argument:
 	//    ./path/to.tar
 	//
 	// This will catalog the file metadata and resolve all squash trees
-	image, err := stereoscope.GetImage(os.Args[1], nil)
+	image, err := stereoscope.GetImage(ctx, os.Args[1], nil)
 	if err != nil {
 		panic(err)
 	}
